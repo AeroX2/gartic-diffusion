@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "web-server-lobby"
+version = "0.1.0"
+description = ""
+authors = ["AeroX2 <james@ridey.email>"]
+readme = "README.md"
+packages = [{include = "web_server_lobby"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+flask = "^2.2.2"
+flask-socketio = "^5.3.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

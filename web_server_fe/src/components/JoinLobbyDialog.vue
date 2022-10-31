@@ -2,7 +2,7 @@
 import { defineComponent } from "vue";
 
 export default defineComponent({
-  props: { showDialog: Boolean },
+  props: { showDialog: Boolean, error: String },
   data() {
     return { code: "" };
   },
@@ -18,20 +18,27 @@ export default defineComponent({
     v-bind:draggable="false"
     v-model:visible="showDialog"
   >
-    <div style="padding-top: 1.5rem">
-      <span class="p-float-label">
-        <InputText
-          id="code"
-          class="w-full"
-          v-model="code"
-          v-bind:class="code.length != 5 && 'p-invalid'"
-          type="number"
-          min="10000"
-          max="99999"
-        />
-        <label for="code">Code</label>
-      </span>
-    </div>
+    <template #default>
+      <div class="flex flex-column gap-2">
+        <Tag severity="danger" v-if="error">
+          {{ error }}
+        </Tag>
+        <div style="padding-top: 1.5rem">
+          <span class="p-float-label">
+            <InputText
+              id="code"
+              class="w-full"
+              v-model="code"
+              v-bind:class="code.length != 5 && 'p-invalid'"
+              type="number"
+              min="10000"
+              max="99999"
+            />
+            <label for="code">Code</label>
+          </span>
+        </div>
+      </div>
+    </template>
     <template #footer>
       <Button
         @click="$emit('confirm', code)"

@@ -11,6 +11,7 @@ export default defineComponent({
 
 <template>
   <Dialog
+    class="w-6"
     header="Set Username"
     v-bind:modal="true"
     v-bind:closable="false"
@@ -21,6 +22,7 @@ export default defineComponent({
       <div style="padding-top: 1.5rem">
         <span class="p-float-label">
           <InputText
+            class="w-full"
             id="username"
             v-model="username"
             v-bind:class="username.length <= 0 && 'p-invalid'"

@@ -17,7 +17,7 @@ export default defineComponent({
   data() {
     return {
       store: useLobbyStore(),
-      socket: io(),
+      socket: io("http://localhost:5000"),
     };
   },
   mounted() {
@@ -34,7 +34,42 @@ export default defineComponent({
       this.store.submitJoin(code);
     },
     setUsername(username: string) {
-      this.store.submitUsername(username);
+      this.store.submitUsername(username, this.connectToLobby);
+    },
+    connectToLobby() {
+      this.socket.on("lobby_update", (data) => {
+        if (data.error) {
+          // TODO handle error
+          return;
+        }
+        this.store.lobby = data.lobby;
+      });
+
+      if (this.$props.type === "create") {
+        this.socket.on("lobby_create_response", (data) => {
+          if (data.error) {
+            // TODO handle error
+            return;
+          }
+          this.store.lobby = data.lobby;
+          this.store.code = data.code;
+          this.store.doneLoading();
+        });
+        this.socket.emit("lobby_create", { username: this.store.username });
+      } else if (this.$props.type === "join") {
+        this.socket.on("lobby_join_response", (data) => {
+          if (data.error) {
+            // TODO handle error
+            return;
+          }
+          this.store.lobby = data.lobby;
+          this.store.doneLoading();
+        });
+        this.socket.emit("lobby_join", {
+          code: this.store.code,
+          username: this.store.username,
+        });
+      }
     },
     kickUser() {},
   },
@@ -55,10 +90,14 @@ export default defineComponent({
   </div>
   <div v-if="store.state === 'done'">
     <h4>Users</h4>
-    <li v-for="user in store.users">
-      <Card>
-        <Button @click="kickUser">{{ user.name }}</Button>
-      </Card>
-    </li>
+    <div class="grid">
+      <div class="col-4" v-for="user in store.lobby?.users">
+        <Card>
+          <template #content>
+            {{ user.name }}
+          </template>
+        </Card>
+      </div>
+    </div>
   </div>
 </template>

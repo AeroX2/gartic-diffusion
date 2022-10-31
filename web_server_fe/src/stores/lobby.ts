@@ -5,9 +5,19 @@ type User = {
   uuid: string;
 };
 
+type Lobby = {
+  uuid: string;
+  users: User[];
+};
+
 export const useLobbyStore = defineStore("lobby", {
   state: () => {
-    return { state: "initial", code: "", username: "", users: [] as User[] };
+    return {
+      state: "initial",
+      code: "",
+      username: "",
+      lobby: null as Lobby | null,
+    };
   },
   actions: {
     creating() {
@@ -20,9 +30,10 @@ export const useLobbyStore = defineStore("lobby", {
       this.code = code;
       this.state = "username";
     },
-    submitUsername(username: string) {
+    submitUsername(username: string, callback: () => void) {
       this.username = username;
       this.state = "loading";
+      callback();
     },
     doneLoading() {
       this.state = "done";

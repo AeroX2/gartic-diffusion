@@ -4,9 +4,10 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import router from "./router";
 import PrimeVue from "primevue/config";
+import "primeflex/primeflex.css";
+import "primeicons/primeicons.css";
 import "primevue/resources/primevue.min.css";
 import "primevue/resources/themes/lara-dark-blue/theme.css";
-import "primeicons/primeicons.css";
 
 import Panel from "primevue/panel";
 import Toolbar from "primevue/toolbar";
@@ -21,6 +22,8 @@ import InputText from "primevue/inputtext";
 import Editor from "primevue/editor";
 import Chips from "primevue/chips";
 import ProgressSpinner from "primevue/progressspinner";
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
 
 import Tooltip from "primevue/tooltip";
 
@@ -42,6 +45,8 @@ app.component("InputText", InputText);
 app.component("Editor", Editor);
 app.component("Chips", Chips);
 app.component("ProgressSpinner", ProgressSpinner);
+app.component("DataTable", DataTable);
+app.component("Column", Column);
 
 app.directive("tooltip", Tooltip);
 

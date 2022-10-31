@@ -11,6 +11,7 @@ export default defineComponent({
 
 <template>
   <Dialog
+    class="w-6"
     header="Join lobby"
     v-bind:modal="true"
     v-bind:closable="false"
@@ -21,6 +22,7 @@ export default defineComponent({
       <span class="p-float-label">
         <InputText
           id="code"
+          class="w-full"
           v-model="code"
           v-bind:class="code.length != 5 && 'p-invalid'"
           type="number"

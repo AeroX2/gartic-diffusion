@@ -1,7 +1,7 @@
 import random
 
-from flask import Flask, jsonify, request
-from flask_socketio import join_room, leave_room, SocketIO, emit
+from flask import Flask, request
+from flask_socketio import join_room, SocketIO, emit
 from lobby import Lobby, User
 
 app = Flask(__name__)
@@ -11,15 +11,10 @@ socketio = SocketIO(
     cors_allowed_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
 )
 
-user_lobby = {}
 
-
-def add_user_to_lobby(lobby, user):
-    user_lobby[request.sid] = lobby
-    join_room(lobby)
-    lobby.add_user(user)
-    print(f"User {user.name} added to uuid: {lobby.uuid}")
-    emit("lobby_update", lobby.serialize(), to=lobby.uuid)
+@app.route("/<path:path>")
+def send_static(path):
+    return send_from_directory("static", path)
 
 
 valid_codes = [str(i) for i in range(10000, 99999)]
@@ -35,22 +30,27 @@ def generate_code(lobby):
         return (None, "Ran out of valid codes")
 
 
-@app.route("/<path:path>")
-def send_static(path):
-    return send_from_directory("static", path)
+code_to_lobby = {}
+sid_to_lobby = {}
+
+
+def add_user_to_lobby(lobby, user):
+    sid_to_lobby[request.sid] = (lobby, user)
+    join_room(lobby.uuid)
+    lobby.add_user(user)
+    print(f"User {user.name} added to uuid: {lobby.uuid}")
+    emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
 
 
 @socketio.on("disconnect")
 def socket_disconnect():
-    if request.sid in user_lobby:
-        lobby = user_lobby[request.sid]
+    if request.sid in sid_to_lobby:
+        lobby, user = sid_to_lobby[request.sid]
+        lobby.remove_user(user)
 
         print(f"Request {request.sid} disconnected from: {lobby.uuid}")
-        emit("lobby_update", lobby.serialize(), to=lobby.uuid)
-        del user_lobby[request.sid]
-
-
-code_to_lobby = {}
+        emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
+        del sid_to_lobby[request.sid]
 
 
 @socketio.event
@@ -81,7 +81,6 @@ def lobby_join(data):
 
     code = data["code"]
     username = data["username"]
-    print(code_to_lobby)
     if code in code_to_lobby:
         lobby = code_to_lobby[code]
         add_user_to_lobby(lobby, User(username))

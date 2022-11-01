@@ -5,6 +5,7 @@ import UserDialog from "./UserDialog.vue";
 import JoinLobbyDialog from "./JoinLobbyDialog.vue";
 import { useLobbyStore } from "../stores/lobby";
 import { toSvg } from "jdenticon";
+import QRCode from "qrcode";
 
 export default defineComponent({
   components: {
@@ -19,6 +20,7 @@ export default defineComponent({
       store: useLobbyStore(),
       error: undefined as string | undefined,
       socket: io("http://localhost:5000"),
+      qrcodeUrl: "",
     };
   },
   mounted() {
@@ -56,6 +58,7 @@ export default defineComponent({
           this.store.lobby = data.lobby;
           this.store.code = data.code;
           this.store.doneLoading();
+          this.generateQr();
         });
         this.socket.emit("lobby_create", { username: this.store.username });
       } else if (this.$props.type === "join") {
@@ -64,6 +67,7 @@ export default defineComponent({
 
           this.store.lobby = data.lobby;
           this.store.doneLoading();
+          this.generateQr();
         });
         this.socket.emit("lobby_join", {
           code: this.store.code,
@@ -83,7 +87,13 @@ export default defineComponent({
     identicon(username: string) {
       return toSvg(username, 50);
     },
-    kickUser() {},
+    generateQr() {
+      QRCode.toDataURL(this.store.code, { errorCorrectionLevel: "H" }).then(
+        (url: string) => {
+          this.qrcodeUrl = url;
+        }
+      );
+    },
   },
 });
 </script>
@@ -100,19 +110,28 @@ export default defineComponent({
     v-on:confirm="setUsername"
   />
   <Panel>
-    <template #header> Users </template>
+    <template #header>
+      <div class="flex">
+        <div class="flex flex-column">
+          Code: {{ store.code }}
+          <img class="border-round-sm" v-bind:src="qrcodeUrl" />
+        </div></div
+    ></template>
     <div v-if="store.state !== 'done'">
       <ProgressSpinner />
     </div>
-    <div class="grid">
-      <div class="col-4" v-for="user in store.lobby?.users">
-        <div class="surface-50 shadow-4 border-round-sm">
-          <div class="flex align-items-center gap-2">
-            <div
-              class="flex align-items-center"
-              v-html="identicon(user.name)"
-            ></div>
-            {{ user.name }}
+    <div class="flex flex-column gap-2">
+      Users
+      <div class="grid">
+        <div class="col-4" v-for="user in store.lobby?.users">
+          <div class="surface-50 shadow-4 border-round-sm">
+            <div class="flex align-items-center gap-2">
+              <div
+                class="flex align-items-center"
+                v-html="identicon(user.name)"
+              ></div>
+              {{ user.name }}
+            </div>
           </div>
         </div>
       </div>

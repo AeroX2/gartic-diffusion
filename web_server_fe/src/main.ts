@@ -17,6 +17,9 @@ import Dialog from "primevue/dialog";
 import InputText from "primevue/inputtext";
 import ProgressSpinner from "primevue/progressspinner";
 import Tag from "primevue/tag";
+import Inplace from "primevue/inplace";
+import ToastService from "primevue/toastservice";
+import Toast from "primevue/toast";
 
 import Tooltip from "primevue/tooltip";
 
@@ -25,6 +28,8 @@ import "./assets/main.css";
 const app = createApp(App);
 
 app.use(PrimeVue);
+app.use(ToastService);
+
 app.component("Panel", Panel);
 app.component("Button", Button);
 app.component("Dropdown", Dropdown);
@@ -33,6 +38,8 @@ app.component("Dialog", Dialog);
 app.component("InputText", InputText);
 app.component("ProgressSpinner", ProgressSpinner);
 app.component("Tag", Tag);
+app.component("Inplace", Inplace);
+app.component("Toast", Toast);
 
 app.directive("tooltip", Tooltip);
 

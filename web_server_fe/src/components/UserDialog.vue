@@ -28,9 +28,12 @@ export default defineComponent({
             <InputText
               class="w-full"
               id="username"
+              autocomplete="off"
               v-model="username"
               v-bind:class="username.length <= 0 && 'p-invalid'"
+              @keyup.enter="username.length > 0 && $emit('confirm', username)"
               type="text"
+              autofocus
             />
             <label for="username">Username</label>
           </span>
@@ -42,7 +45,6 @@ export default defineComponent({
         @click="$emit('confirm', username)"
         v-bind:disabled="username.length <= 0"
         label="Confirm"
-        autofocus
       />
     </template>
   </Dialog>

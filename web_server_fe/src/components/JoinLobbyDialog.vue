@@ -1,40 +1,12 @@
 <script lang="ts">
 import { defineComponent } from "vue";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { useToast } from "primevue/usetoast";
 
 export default defineComponent({
   props: { showDialog: Boolean, error: String },
   data() {
     return { code: "", toast: useToast() };
-  },
-  methods: {
-    openCamera() {
-      const html5QrCode = new Html5Qrcode("reader");
-      html5QrCode
-        .start(
-          { facingMode: { exact: "environment" } },
-          {
-            fps: 10,
-          },
-          (decodedText) => {
-            if (parseInt(decodedText).toString().length != 5) return;
-            this.$emit("confirm", decodedText);
-            html5QrCode.stop();
-          },
-          (_) => {
-            // parse error, ignore it.
-          }
-        )
-        .catch((err) => {
-          this.toast.add({
-            severity: "error",
-            summary: "Error happened",
-            detail: err,
-            life: 3000,
-          });
-        });
-    },
   },
 });
 </script>
@@ -53,8 +25,6 @@ export default defineComponent({
         <Tag severity="danger" v-if="error">
           {{ error }}
         </Tag>
-        <div id="reader" width="600px" height="600px"></div>
-        <Button @click="openCamera()" class="pi pi-camera">Use camera</Button>
         <div style="padding-top: 1.5rem">
           <span class="p-float-label">
             <InputText

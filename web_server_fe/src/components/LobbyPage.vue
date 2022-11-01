@@ -51,6 +51,10 @@ export default defineComponent({
         this.store.lobby = data.lobby;
       });
 
+      this.socket.on("game_start", () => {
+        this.$router.push(`/game/${this.store.lobby?.uuid}`);
+      });
+
       if (this.$props.type === "create") {
         this.socket.on("lobby_create_response", (data) => {
           if (this.handleError(data)) return;
@@ -84,6 +88,10 @@ export default defineComponent({
       this.error = undefined;
       return false;
     },
+    startGame() {
+      this.socket.emit("lobby_start_game", { uuid: this.store.lobby?.uuid });
+      this.$router.push(`/game/${this.store.lobby?.uuid}`);
+    },
     identicon(username: string) {
       return toSvg(username, 50);
     },
@@ -111,17 +119,22 @@ export default defineComponent({
   />
   <Panel>
     <template #header>
-      <div class="flex">
-        <div class="flex flex-column">
-          Code: {{ store.code }}
-          <img class="border-round-sm" v-bind:src="qrcodeUrl" />
-        </div></div
-    ></template>
-    <div v-if="store.state !== 'done'">
-      <ProgressSpinner />
-    </div>
+      <div class="flex justify-content-between w-full">
+        <div class="flex flex-column text-5xl">Code: {{ store.code }}</div>
+        <Button
+          @click="startGame()"
+          class="p-button-success"
+          icon="pi pi-check"
+          iconPos="right"
+          label="Start"
+        />
+      </div>
+    </template>
     <div class="flex flex-column gap-2">
       Users
+      <div v-if="store.state !== 'done'">
+        <ProgressSpinner />
+      </div>
       <div class="grid">
         <div class="col-4" v-for="user in store.lobby?.users">
           <div class="surface-50 shadow-4 border-round-sm">

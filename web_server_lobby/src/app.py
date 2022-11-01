@@ -7,9 +7,13 @@ from lobby import Lobby, User
 app = Flask(__name__)
 socketio = SocketIO(
     app,
-    logger=False,
-    cors_allowed_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+    cors_allowed_origins=["https://127.0.0.1:5173", "https://localhost:5173"],
 )
+
+import logging
+
+logging.getLogger("socketio").setLevel(logging.ERROR)
+logging.getLogger("engineio").setLevel(logging.ERROR)
 
 
 @app.route("/<path:path>")
@@ -35,10 +39,11 @@ sid_to_lobby = {}
 
 
 def add_user_to_lobby(lobby, user):
-    sid_to_lobby[request.sid] = (lobby, user)
-    join_room(lobby.uuid)
-    lobby.add_user(user)
-    print(f"User {user.name} added to uuid: {lobby.uuid}")
+    if request.sid not in sid_to_lobby:
+        sid_to_lobby[request.sid] = (lobby, user)
+        join_room(lobby.uuid)
+        lobby.add_user(user)
+        print(f"User {user.name} added to uuid: {lobby.uuid}")
     emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
 
 
@@ -87,6 +92,16 @@ def lobby_join(data):
         emit("lobby_join_response", {"lobby": lobby.serialize()})
     else:
         emit("lobby_join_response", {"error": "Invalid lobby code"})
+
+
+@socketio.event
+def lobby_start_game(data):
+    if "uuid" not in data:
+        print("Not enough data for lobby_start_game")
+        return
+    lobby_uuid = data["uuid"]
+    print(f"Starting game in {lobby_uuid}")
+    emit("game_start", {}, to=lobby_uuid)
 
 
 if __name__ == "__main__":

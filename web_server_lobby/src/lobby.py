@@ -21,7 +21,7 @@ class User(json.JSONEncoder):
 
 class Lobby(json.JSONEncoder):
     def __init__(self):
-        self.uuid = uuid4()
+        self.uuid = str(uuid4())
         self.users = set()
 
     def add_user(self, user):
@@ -32,6 +32,6 @@ class Lobby(json.JSONEncoder):
 
     def serialize(self):
         return {
-            "uuid": str(self.uuid),
+            "uuid": self.uuid,
             "users": list(map(lambda user: user.serialize(), self.users)),
         }

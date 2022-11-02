@@ -5,7 +5,6 @@ import UserDialog from "./UserDialog.vue";
 import JoinLobbyDialog from "./JoinLobbyDialog.vue";
 import { useLobbyStore } from "../stores/lobby";
 import { toSvg } from "jdenticon";
-import QRCode from "qrcode";
 
 export default defineComponent({
   components: {
@@ -20,7 +19,6 @@ export default defineComponent({
       store: useLobbyStore(),
       error: undefined as string | undefined,
       socket: io("http://localhost:5000"),
-      qrcodeUrl: "",
     };
   },
   mounted() {
@@ -62,7 +60,6 @@ export default defineComponent({
           this.store.lobby = data.lobby;
           this.store.code = data.code;
           this.store.doneLoading();
-          this.generateQr();
         });
         this.socket.emit("lobby_create", { username: this.store.username });
       } else if (this.$props.type === "join") {
@@ -71,7 +68,6 @@ export default defineComponent({
 
           this.store.lobby = data.lobby;
           this.store.doneLoading();
-          this.generateQr();
         });
         this.socket.emit("lobby_join", {
           code: this.store.code,
@@ -94,13 +90,6 @@ export default defineComponent({
     },
     identicon(username: string) {
       return toSvg(username, 50);
-    },
-    generateQr() {
-      QRCode.toDataURL(this.store.code, { errorCorrectionLevel: "H" }).then(
-        (url: string) => {
-          this.qrcodeUrl = url;
-        }
-      );
     },
   },
 });

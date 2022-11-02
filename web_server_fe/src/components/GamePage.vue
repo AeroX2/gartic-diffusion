@@ -1,4 +1,6 @@
 <script lang="ts">
+import { useGameStore } from "@/stores/game";
+import { io } from "socket.io-client";
 import { defineComponent } from "vue";
 
 export default defineComponent({
@@ -7,7 +9,10 @@ export default defineComponent({
     uuid: String,
   },
   data() {
-    return {};
+    return {
+        store: useGameStore(),
+        socket: io(),
+    };
   },
   methods: {},
 });

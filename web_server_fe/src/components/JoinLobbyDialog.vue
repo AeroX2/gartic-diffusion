@@ -1,6 +1,5 @@
 <script lang="ts">
 import { defineComponent } from "vue";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { useToast } from "primevue/usetoast";
 
 export default defineComponent({

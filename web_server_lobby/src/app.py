@@ -6,6 +6,7 @@ from typing import Optional
 from flask import Flask, request, send_from_directory
 from flask_socketio import join_room, SocketIO, emit
 from lobby import Lobby, User
+from image_generator import generate_next_images
 
 app = Flask(__name__)
 socketio = SocketIO(
@@ -118,9 +119,11 @@ def lobby_start_game(data):
         return
     lobby_uuid = data["uuid"]
     rounds = int(data.get("rounds", 20))
+    round_timer = int(data.get("round_timer", 60))
 
     lobby = uuid_to_lobby[lobby_uuid]
-    lobby.rounds = rounds
+    lobby.amount_of_rounds = rounds
+    lobby.round_timer = round_timer
 
     print(f"Starting game in {lobby_uuid}")
     emit("game_start", {}, to=lobby_uuid)
@@ -129,16 +132,58 @@ def lobby_start_game(data):
     thread.start()
 
 
-def game_loop(lobby: Lobby):
-    time.sleep(10)
+@socketio.event
+def game_response(data):
+    if "description" not in data:
+        print("Not enough data for game_response")
+        return
 
-    for round in range(lobby.rounds):
-        pass
+    description = data["description"]
+
+    lobby = sid_to_lobby[request.sid]
+    lobby.add_response(User(request.sid, ""), description)
+
+
+def game_loop(lobby: Lobby):
+    for round_number in range(1, lobby.amount_of_rounds):
+        time.sleep(lobby.round_timer)
+
+        # Wait for all responses
+        emit("game_next_state", { 'state': 'loading' }, to=lobby.uuid)
+        wait_until(lobby.all_responses_received, 5)
+
+        # Generate images
+        items = generate_next_images(lobby)
+        
+        # Pass out the new images
+        for item in items:
+            (user, imageUrl) = item
+            emit("game_next_state", { 'state': 'loading', 'imageUrl': imageUrl }, to=user.sid)
+
+        # Start a new round
+        lobby.new_round(round_number)
 
     emit("game_finish", {}, to=lobby.uuid)
-    del uuid_to_lobby[lobby.uuid]
-    remove_empty_lobby(lobby)
+    # del uuid_to_lobby[lobby.uuid]
+    # remove_empty_lobby(lobby)
+
+
+def wait_until(somepredicate, timeout, period=0.25, *args, **kwargs):
+    mustend = time.time() + timeout
+    while time.time() < mustend:
+        if somepredicate(*args, **kwargs):
+            return True
+        time.sleep(period)
+    return False
 
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True)
+    # Test image generation is working
+    lobby = Lobby()
+    user = User('1234', '')
+    lobby.add_user(user)
+    lobby.add_response(user, 'A cow on the moon, munching some grass')
+    print(generate_next_images(lobby))
+
+    socketio.run(app)
+

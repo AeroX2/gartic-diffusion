@@ -1,6 +1,5 @@
 <script lang="ts">
 import { useGameStore } from "@/stores/game";
-import { throwStatement } from "@babel/types";
 import { io } from "socket.io-client";
 import { defineComponent } from "vue";
 
@@ -12,7 +11,7 @@ export default defineComponent({
   data() {
     return {
       store: useGameStore(),
-      socket: io("http://localhost:5000"),
+      socket: io(),
     };
   },
   mounted() {

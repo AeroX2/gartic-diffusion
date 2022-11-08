@@ -18,7 +18,7 @@ export default defineComponent({
     return {
       store: useLobbyStore(),
       error: undefined as string | undefined,
-      socket: io("http://localhost:5000"),
+      socket: io(),
     };
   },
   mounted() {

@@ -9,7 +9,7 @@ export default defineComponent({
   },
   data() {
     return {
-      socket: io("http://localhost:5000"),
+      socket: io(),
     };
   },
   mounted() {},

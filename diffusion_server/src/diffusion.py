@@ -1,9 +1,11 @@
+import torch
 from pathlib import Path
 from diffusers import StableDiffusionPipeline
 
-pipe = StableDiffusionPipeline.from_pretrained("/opt/hf/runwayml/stable-diffusion-v1-5").to(
-    "cuda"
-)
+pipe = StableDiffusionPipeline.from_pretrained(
+    "../stable-diffusion-v1-5", revision="fp16", torch_dtype=torch.float16
+).to("cuda")
+
 
 def generate_images(
     prompts: list[str], lobby_uuid: str, round: int, players: list[str]

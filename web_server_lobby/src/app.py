@@ -1,5 +1,6 @@
 import time
 import random
+import secrets
 from threading import Thread
 from typing import Optional
 
@@ -9,6 +10,7 @@ from lobby import Lobby, User
 from image_generator import generate_next_images
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex()
 socketio = SocketIO(
     app,
     cors_allowed_origins=["https://127.0.0.1:5173", "https://localhost:5173"],
@@ -18,12 +20,6 @@ import logging
 
 logging.getLogger("socketio").setLevel(logging.ERROR)
 logging.getLogger("engineio").setLevel(logging.ERROR)
-
-
-@app.route("/<path:path>")
-def send_static(path: str):
-    return send_from_directory("static", path)
-
 
 code_to_lobby: dict[str, Lobby] = {}
 valid_codes = [str(i) for i in range(10000, 99999)]
@@ -149,16 +145,19 @@ def game_loop(lobby: Lobby):
         time.sleep(lobby.round_timer)
 
         # Wait for all responses
-        emit("game_next_state", { 'state': 'loading' }, to=lobby.uuid)
+        emit("game_next_state", {"state": "loading"}, to=lobby.uuid)
         wait_until(lobby.all_responses_received, 5)
 
         # Generate images
         items = generate_next_images(lobby)
-        
+
         # Pass out the new images
-        for item in items:
-            (user, imageUrl) = item
-            emit("game_next_state", { 'state': 'loading', 'imageUrl': imageUrl }, to=user.sid)
+        for user, imageUrl in items.items():
+            emit(
+                "game_next_state",
+                {"state": "loading", "imageUrl": imageUrl},
+                to=user.sid,
+            )
 
         # Start a new round
         lobby.new_round(round_number)
@@ -178,12 +177,21 @@ def wait_until(somepredicate, timeout, period=0.25, *args, **kwargs):
 
 
 if __name__ == "__main__":
+    print("Lobby is starting")
     # Test image generation is working
+
+    print("Warming up the diffusion server...")
     lobby = Lobby()
-    user = User('1234', '')
+    user = User("1234", "")
     lobby.add_user(user)
-    lobby.add_response(user, 'A cow on the moon, munching some grass')
+    lobby.add_response(user, "A cow on the moon, munching some grass")
     print(generate_next_images(lobby))
+    print("Image generated!")
+
+    lobby.new_round(1)
+    lobby.add_response(user, "An alien cat lapping up some milk")
+    print(generate_next_images(lobby))
+    print("Another Image generated!")
 
     socketio.run(app)
-
+    print("Lobby has stated")

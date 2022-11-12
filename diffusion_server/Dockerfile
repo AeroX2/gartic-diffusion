@@ -13,4 +13,3 @@ COPY src /workdir/src
 WORKDIR /workdir/src
 
 CMD ["/bin/sh", "-c", "rq worker --with-scheduler --url ${REDIS_URL}"]
-EXPOSE 5000

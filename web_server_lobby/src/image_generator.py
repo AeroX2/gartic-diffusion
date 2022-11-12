@@ -35,7 +35,7 @@ def generate_next_images(lobby: Lobby) -> dict[User, str]:
         user = response_users[i]
 
         image_dir_path = Path(
-            f"../static/images/lobby_{lobby.uuid}/round_{round_number}"
+            f"/workdir/images/lobby_{lobby.uuid}/round_{round_number}"
         )
         image_dir_path.mkdir(parents=True, exist_ok=True)
         image_path = image_dir_path / f"player_{user.sid}.png"

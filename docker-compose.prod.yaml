@@ -2,6 +2,8 @@ services:
   web:
     build: web_server_fe
     restart: on-failure:3
+    volumes:
+      - shared-images-volume:/usr/share/nginx/html/images
     ports:
       - 8080:80
     depends_on:
@@ -10,6 +12,8 @@ services:
   lobby:
     build: web_server_lobby
     restart: on-failure:3
+    volumes:
+      - shared-images-volume:/workdir/images
     ports:
       - 5000:5000
     depends_on:
@@ -17,24 +21,6 @@ services:
     networks:
       - redis_net
 
-  diffusion_server:
-    build: 
-      context: diffusion_server
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    environment:
-        - REDIS_URL=redis://redis:6379
-    restart: on-failure:3
-    depends_on:
-      - redis
-    networks:
-      - redis_net
-      
   redis:
     image: redis
     restart: always

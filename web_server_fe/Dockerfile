@@ -8,4 +8,5 @@ RUN npm install
 RUN npm run build
 
 FROM nginx
+COPY default.conf /etc/nginx/conf.d/
 COPY --from=build-stage /workdir/dist/ /usr/share/nginx/html

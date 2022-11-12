@@ -1,24 +1,19 @@
 import time
 import random
-import secrets
+import uvicorn
+import socketio
 from threading import Thread
-from typing import Optional
+from typing import Any, Optional
 
-from flask import Flask, request, send_from_directory
-from flask_socketio import join_room, SocketIO, emit
 from lobby import Lobby, User
 from image_generator import generate_next_images
 
-app = Flask(__name__)
-app.secret_key = secrets.token_hex()
-socketio = SocketIO(
-    app,
-    cors_allowed_origins=["https://127.0.0.1:5173", "https://localhost:5173"],
-)
+sio = socketio.AsyncServer()
+app = socketio.ASGIApp(sio)
 
 import logging
 
-logging.getLogger("socketio").setLevel(logging.ERROR)
+logging.getLogger("sio").setLevel(logging.ERROR)
 logging.getLogger("engineio").setLevel(logging.ERROR)
 
 code_to_lobby: dict[str, Lobby] = {}
@@ -41,11 +36,11 @@ sid_to_lobby: dict[str, Lobby] = {}
 
 def add_user_to_lobby(lobby: Lobby, user: User):
     if not lobby.has_user(user):
-        sid_to_lobby[request.sid] = lobby
-        join_room(lobby.uuid)
+        sid_to_lobby[user.sid] = lobby
+        sio.enter_room(lobby.uuid)
         lobby.add_user(user)
         print(f"User {user.name} added to uuid: {lobby.uuid}")
-    emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
+    sio.sio.emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
 
 
 def remove_empty_lobby(lobby: Lobby):
@@ -56,60 +51,60 @@ def remove_empty_lobby(lobby: Lobby):
             break
 
 
-@socketio.on("disconnect")
-def socket_disconnect():
-    user = User(request.sid, "")
-    lobby = sid_to_lobby[request.sid]
+@sio.on("disconnect")
+def socket_disconnect(sid: str):
+    user = User(sid, "")
+    lobby = sid_to_lobby[sid]
     if lobby.has_user(user):
         lobby.remove_user(user)
 
-        print(f"Request {request.sid} disconnected from: {lobby.uuid}")
-        emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
+        print(f"Request {sid} disconnected from: {lobby.uuid}")
+        sio.emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
 
-        del sid_to_lobby[request.sid]
+        del sid_to_lobby[sid]
         if lobby.empty():
             remove_empty_lobby(lobby)
 
 
-@socketio.event
-def lobby_create(data):
+@sio.event
+def lobby_create(sid: str, data: dict[str, Any]):
     if "username" not in data:
-        emit("lobby_join_response", {"error": "Not enough data"})
+        sio.emit("lobby_join_response", {"error": "Not enough data"})
         return
 
     lobby = Lobby()
     uuid_to_lobby[lobby.uuid] = lobby
     code, error = generate_code(lobby)
     if error is not None:
-        emit("lobby_create_response", {"error": error})
+        sio.emit("lobby_create_response", {"error": error})
         return
     print(f"Lobby created with uuid: {lobby.uuid}")
     print(f"Generated code {code} for {lobby.uuid}")
 
     username = data["username"]
-    add_user_to_lobby(lobby, User(request.sid, username))
+    add_user_to_lobby(lobby, User(sid, username))
 
-    emit("lobby_create_response", {"lobby": lobby.serialize(), "code": code})
+    sio.emit("lobby_create_response", {"lobby": lobby.serialize(), "code": code})
 
 
-@socketio.event
-def lobby_join(data):
+@sio.event
+def lobby_join(sid: str, data: dict[str, Any]):
     if "username" not in data or "code" not in data:
-        emit("lobby_join_response", {"error": "Not enough data"})
+        sio.emit("lobby_join_response", {"error": "Not enough data"})
         return
 
     code = data["code"]
     username = data["username"]
     if code in code_to_lobby:
         lobby = code_to_lobby[code]
-        add_user_to_lobby(lobby, User(request.sid, username))
-        emit("lobby_join_response", {"lobby": lobby.serialize()})
+        add_user_to_lobby(lobby, User(sid, username))
+        sio.emit("lobby_join_response", {"lobby": lobby.serialize()})
     else:
-        emit("lobby_join_response", {"error": "Invalid lobby code"})
+        sio.emit("lobby_join_response", {"error": "Invalid lobby code"})
 
 
-@socketio.event
-def lobby_start_game(data):
+@sio.event
+def lobby_start_game(sid: str, data: dict[str, Any]):
     if "uuid" not in data:
         print("Not enough data for lobby_start_game")
         return
@@ -122,22 +117,22 @@ def lobby_start_game(data):
     lobby.round_timer = round_timer
 
     print(f"Starting game in {lobby_uuid}")
-    emit("game_start", {}, to=lobby_uuid)
+    sio.emit("game_start", {}, to=lobby_uuid)
 
     thread = Thread(target=game_loop, args=(lobby,))
     thread.start()
 
 
-@socketio.event
-def game_response(data):
+@sio.event
+def game_response(sid: str, data: dict[str, Any]):
     if "description" not in data:
         print("Not enough data for game_response")
         return
 
     description = data["description"]
 
-    lobby = sid_to_lobby[request.sid]
-    lobby.add_response(User(request.sid, ""), description)
+    lobby = sid_to_lobby[sid]
+    lobby.add_response(User(sid, ""), description)
 
 
 def game_loop(lobby: Lobby):
@@ -145,7 +140,7 @@ def game_loop(lobby: Lobby):
         time.sleep(lobby.round_timer)
 
         # Wait for all responses
-        emit("game_next_state", {"state": "loading"}, to=lobby.uuid)
+        sio.emit("game_next_state", {"state": "loading"}, to=lobby.uuid)
         wait_until(lobby.all_responses_received, 5)
 
         # Generate images
@@ -153,7 +148,7 @@ def game_loop(lobby: Lobby):
 
         # Pass out the new images
         for user, imageUrl in items.items():
-            emit(
+            sio.emit(
                 "game_next_state",
                 {"state": "loading", "imageUrl": imageUrl},
                 to=user.sid,
@@ -162,7 +157,7 @@ def game_loop(lobby: Lobby):
         # Start a new round
         lobby.new_round(round_number)
 
-    emit("game_finish", {}, to=lobby.uuid)
+    sio.emit("game_finish", {}, to=lobby.uuid)
     # del uuid_to_lobby[lobby.uuid]
     # remove_empty_lobby(lobby)
 
@@ -193,5 +188,5 @@ if __name__ == "__main__":
     print(generate_next_images(lobby))
     print("Another Image generated!")
 
-    socketio.run(app)
     print("Lobby has stated")
+    uvicorn.run(app, host="127.0.0.1", port=5000, log_level="info")

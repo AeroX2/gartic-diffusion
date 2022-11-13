@@ -1,4 +1,6 @@
 import json
+import math
+import random
 import threading
 from typing import Optional
 from uuid import uuid4
@@ -22,8 +24,9 @@ class User(json.JSONEncoder):
 
 
 class Round:
-    def __init__(self, round_number: int):
+    def __init__(self, round_number: int, shuffle_indicies: list[int]):
         self.round_number = round_number
+        self.shuffle_indices = shuffle_indicies
         self.user_responses: dict[User, str] = {}
 
 
@@ -35,9 +38,11 @@ class Lobby(json.JSONEncoder):
         self.game_state = "initial"
         self.lock = threading.Lock()
 
-        self.rounds = [Round(0)]
+        self.rounds = []
         self.round_timer: int = 0
         self.amount_of_rounds: int = 0
+
+        self.invalid_permutation = set()
 
     def add_user(self, user: User):
         self.users.add(user)
@@ -48,8 +53,16 @@ class Lobby(json.JSONEncoder):
     def has_user(self, user: User) -> bool:
         return user in self.users
 
-    def empty(self):
+    def empty(self) -> bool:
         return len(self.users) <= 0
+
+    def new_game(self, round_timer: int):
+        self.round_timer = round_timer
+
+        user_len = len(self.users)
+        self.amount_of_rounds = user_len
+
+        self.new_round(first=True)
 
     def current_round(self) -> Round:
         self.lock.acquire()
@@ -57,10 +70,38 @@ class Lobby(json.JSONEncoder):
         self.lock.release()
         return round
 
-    def new_round(self, round: int):
+    def _generate_shuffle(self) -> list[int]:
+        n = len(self.users)
+        i = random.randint(0, math.factorial(n))
+        while i in self.invalid_permutation:
+            i = random.randint(0, math.factorial(n))
+        self.invalid_permutation.add(i)
+
+        perm = [0] * n
+        fact = [0] * n
+        fact[0] = 1
+        for k in range(n):
+            fact[k] = fact[k - 1] * k
+
+        for k in range(1,n):
+            perm[k] = i // fact[n - 1 - k]
+            i = i % fact[n - 1 - k]
+
+        for k in range(n - 1, 0, -1):
+            for j in range(k - 1, 0, -1):
+                if (perm[j] <= perm[k]):
+                    perm[k] += 1
+        return perm
+
+    def new_round(self, first = False) -> Round:
         self.lock.acquire()
-        self.rounds.append(Round(round))
+
+        shuffle = [] if first else self._generate_shuffle()
+        round = Round(len(self.rounds), shuffle)
+        self.rounds.append(round)
+
         self.lock.release()
+        return round
 
     def current_responses(self):
         self.current_round().user_responses

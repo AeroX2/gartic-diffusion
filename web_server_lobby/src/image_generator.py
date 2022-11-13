@@ -2,7 +2,7 @@ from pathlib import Path
 import time
 from typing import Optional
 from redis import Redis
-from rq import Queue
+from rq import Retry, Queue
 
 
 from lobby import Lobby, User
@@ -19,9 +19,17 @@ def generate_next_images(lobby: Lobby) -> dict[User, str]:
     response_values = list(responses.values())
 
     start = time.time()
-    job = q.enqueue("diffusion.generate_images", response_values)
-    while job.result is None:
+    job = q.enqueue("diffusion.generate_images", response_values, retry=Retry(max=3))
+
+    status = job.get_status()
+    while not (status == "finished" or status == "failed"):
         time.sleep(0.1)
+        status = job.get_status()
+
+    if status == "failed":
+        print("Diffusion server timed out")
+        return {}
+
     print(f"It took {time.time() - start} seconds to generate")
 
     error: Optional[str]
@@ -29,6 +37,7 @@ def generate_next_images(lobby: Lobby) -> dict[User, str]:
     (error, images_data) = job.result
     if error is not None:
         print("Error has occured", error)
+        return {}
 
     items: dict[User, str] = {}
     for i, result in enumerate(images_data):

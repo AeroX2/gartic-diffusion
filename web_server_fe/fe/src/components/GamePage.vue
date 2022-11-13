@@ -29,25 +29,17 @@ export default defineComponent({
 
 <template>
   <Card>
-    <img
-      class="w-full border-round-sm"
-      v-if="store.imageUrl"
-      v-bind:src="store.imageUrl"
-    />
-    {{
-      store.state === "initial"
-        ? "Describe a scene you want to have generated"
-        : "Describe the scene above"
-    }}
-    <span class="p-float-label">
-      <InputText
-        id="description"
-        class="w-full"
-        autocomplete="off"
-        v-model="store.description"
-        autofocus
-      />
-      <label for="description">Description</label>
-    </span>
+    <template #content>
+      <img class="w-full border-round-sm" v-if="store.imageUrl" v-bind:src="store.imageUrl" />
+      {{
+          store.state === "initial"
+            ? "Describe a scene you want to have generated"
+            : "Describe the scene above"
+      }}
+      <span class="p-float-label">
+        <InputText id="description" class="w-full" autocomplete="off" v-model="store.description" autofocus />
+        <label for="description">Description</label>
+      </span>
+    </template>
   </Card>
 </template>

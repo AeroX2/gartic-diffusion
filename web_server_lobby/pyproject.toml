@@ -8,7 +8,7 @@ authors = ["AeroX2 <james@ridey.email>"]
 python = "^3.10"
 rq = "^1.11.1"
 python-socketio = "^5.7.2"
-uvicorn = "^0.19.0"
+uvicorn = {extras = ["standard"], version = "^0.19.0"}
 
 
 [tool.poetry.group.dev.dependencies]

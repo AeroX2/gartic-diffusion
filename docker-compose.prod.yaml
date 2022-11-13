@@ -1,6 +1,8 @@
 services:
   web:
-    build: web_server_fe
+    build: 
+      context: web_server_fe
+      dockerfile: ./Dockerfile.prod
     restart: on-failure:3
     volumes:
       - shared-images-volume:/usr/share/nginx/html/images
@@ -8,6 +10,8 @@ services:
       - 8080:80
     depends_on:
       - lobby
+    networks:
+      - lobby_net
 
   lobby:
     build: web_server_lobby
@@ -20,6 +24,7 @@ services:
       - diffusion_server
     networks:
       - redis_net
+      - lobby_net
 
   redis:
     image: redis
@@ -32,4 +37,6 @@ services:
 
 networks:
   redis_net:
+    driver: bridge
+  lobby_net:
     driver: bridge

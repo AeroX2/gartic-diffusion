@@ -1,25 +1,30 @@
 services:
   web:
-    build: web_server_fe
+    build: 
+      context: web_server_fe
+      dockerfile: ./Dockerfile.dev
     restart: on-failure:3
     volumes:
-      - shared-images-volume:/usr/share/nginx/html/images
+      - type: bind
+        source: ./web_server_fe/fe
+        target: /workdir
     ports:
-      - 8080:80
+      - 8080:5173
     depends_on:
       - lobby
+    networks:
+      - lobby_net
 
   lobby:
     build: web_server_lobby
     restart: on-failure:3
     volumes:
       - shared-images-volume:/workdir/images
-    ports:
-      - 5000:5000
     depends_on:
       - diffusion_server
     networks:
       - redis_net
+      - lobby_net
 
   diffusion_server:
     build: 
@@ -50,6 +55,8 @@ services:
 
 networks:
   redis_net:
+    driver: bridge
+  lobby_net:
     driver: bridge
 
 volumes:

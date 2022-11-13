@@ -13,6 +13,11 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
+    proxy: {
+      '/socket.io': {
+        target: 'http://lobby:5000',
+      },
+    }
   },
   plugins: [vue(), vueJsx()],
   resolve: {

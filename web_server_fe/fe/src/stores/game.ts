@@ -10,9 +10,11 @@ export const useGameStore = defineStore("game", {
   state: () => {
     return {
       state: "initial",
-      imageUrl: undefined,
-      rounds: 10,
+      imageUrl: undefined as string | undefined,
       description: "",
+      roundSeconds: 20,
+      roundTimerStart: 0,
+      roundTimerCurrent: 0,
     };
   },
   actions: {

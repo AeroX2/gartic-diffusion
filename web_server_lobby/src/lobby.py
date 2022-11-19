@@ -7,20 +7,19 @@ from uuid import uuid4
 
 
 class User(json.JSONEncoder):
-    def __init__(self, sid: str, name: str):
-        self.sid = sid
+    def __init__(self, name: str):
         self.name = name
 
     def __hash__(self):
-        return hash(self.sid)
+        return hash(self.name)
 
     def __eq__(self, other):
         if isinstance(other, User):
-            return self.sid == other.sid
+            return self.name == other.name
         return False
 
     def serialize(self):
-        return {"sid": self.sid, "name": self.name}
+        return {"name": self.name}
 
 
 class Round:
@@ -72,10 +71,12 @@ class Lobby(json.JSONEncoder):
 
     def _generate_shuffle(self) -> list[int]:
         n = len(self.users)
-        i = random.randint(0, math.factorial(n))
+        i = random.randint(1, math.factorial(n))
         while i in self.invalid_permutation:
             i = random.randint(0, math.factorial(n))
         self.invalid_permutation.add(i)
+
+        print("N, I", n, i)
 
         perm = [0] * n
         fact = [0] * n
@@ -103,7 +104,7 @@ class Lobby(json.JSONEncoder):
         self.lock.release()
         return round
 
-    def current_responses(self):
+    def current_responses(self) -> dict[User, str]:
         self.current_round().user_responses
 
     def add_response(self, user: User, description: str):

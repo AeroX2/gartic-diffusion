@@ -3,10 +3,8 @@ FROM node as build-stage
 COPY ./fe /workdir
 WORKDIR /workdir
 
-ENV NODE_ENV=production
-
 # Install node
-RUN npm ci
+RUN npm install
 RUN npm run build
 
 FROM nginx

@@ -14,10 +14,13 @@ export default defineConfig({
       usePolling: true,
     },
     proxy: {
-      '/socket.io': {
-        target: 'http://lobby:5000',
+      "/socket.io": {
+        target: "http://lobby:5000",
+        ws: true,
+        secure: false,
+        changeOrigin: true,
       },
-    }
+    },
   },
   plugins: [vue(), vueJsx()],
   resolve: {

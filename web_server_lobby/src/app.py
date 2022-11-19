@@ -8,13 +8,13 @@ from typing import Any, Optional
 from lobby import Lobby, User
 from image_generator import generate_next_images
 
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=["http://localhost:8080"])
+sio = socketio.AsyncServer(
+    logger=False,
+    engineio_logger=False,
+    async_mode="asgi",
+    cors_allowed_origins=["http://localhost:8080"],
+)
 app = socketio.ASGIApp(sio)
-
-import logging
-
-logging.getLogger("sio").setLevel(logging.ERROR)
-logging.getLogger("engineio").setLevel(logging.ERROR)
 
 code_to_lobby: dict[str, Lobby] = {}
 valid_codes = [str(i) for i in range(10000, 99999)]
@@ -31,16 +31,16 @@ def generate_code(lobby: Lobby) -> tuple[Optional[str], Optional[str]]:
 
 
 uuid_to_lobby: dict[str, Lobby] = {}
-sid_to_lobby: dict[str, Lobby] = {}
 
 
-async def add_user_to_lobby(lobby: Lobby, user: User):
+async def add_user_to_lobby(sid: str, lobby: Lobby, user: User):
     if not lobby.has_user(user):
-        sid_to_lobby[user.sid] = lobby
-        sio.enter_room(user.sid, lobby.uuid)
         lobby.add_user(user)
+        sio.enter_room(sid, lobby.uuid)
+        await sio.save_session(sid, {"lobby_uuid": lobby.uuid, "username": user.name})
         print(f"User {user.name} added to uuid: {lobby.uuid}")
-    await sio.emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
+
+    await sio.emit("lobby_update", {"lobby": lobby.serialize()}, room=lobby.uuid, skip_sid=sid)
 
 
 def remove_empty_lobby(lobby: Lobby):
@@ -53,15 +53,19 @@ def remove_empty_lobby(lobby: Lobby):
 
 @sio.event
 async def disconnect(sid: str):
-    user = User(sid, "")
-    lobby = sid_to_lobby[sid]
+    session = await sio.get_session(sid)
+
+    lobby_uuid = session["lobby_uuid"]
+    lobby = uuid_to_lobby[lobby_uuid]
+    user = User(session["username"])
+
     if lobby.has_user(user):
         lobby.remove_user(user)
 
-        print(f"Request {sid} disconnected from: {lobby.uuid}")
-        await sio.emit("lobby_update", {"lobby": lobby.serialize()}, to=lobby.uuid)
+        print(f"User {user.name} disconnected from: {lobby.uuid}")
+        await sio.emit("lobby_update", {"lobby": lobby.serialize()}, room=lobby.uuid, skip_sid=sid)
 
-        del sid_to_lobby[sid]
+        del uuid_to_lobby[lobby_uuid]
         if lobby.empty():
             remove_empty_lobby(lobby)
 
@@ -69,77 +73,81 @@ async def disconnect(sid: str):
 @sio.event
 async def lobby_create(sid: str, data: dict[str, Any]):
     if "username" not in data:
-        await sio.emit("lobby_join_response", {"error": "Not enough data"})
-        return
+        return {"error": "Not enough data for lobby_create"}
 
     lobby = Lobby()
     uuid_to_lobby[lobby.uuid] = lobby
     code, error = generate_code(lobby)
     if error is not None:
-        await sio.emit("lobby_create_response", {"error": error})
-        return
+        return {"error": error}
     print(f"Lobby created with uuid: {lobby.uuid}")
     print(f"Generated code {code} for {lobby.uuid}")
 
     username = data["username"]
-    await add_user_to_lobby(lobby, User(sid, username))
+    await add_user_to_lobby(sid, lobby, User(username))
 
-    await sio.emit("lobby_create_response", {"lobby": lobby.serialize(), "code": code})
+    return {"lobby": lobby.serialize(), "code": code}
 
 
 @sio.event
 async def lobby_join(sid: str, data: dict[str, Any]):
     if "username" not in data or "code" not in data:
-        await sio.emit("lobby_join_response", {"error": "Not enough data"})
-        return
+        return {"error": "Not enough data for lobby_join"}
 
     code = data["code"]
     username = data["username"]
     if code in code_to_lobby:
         lobby = code_to_lobby[code]
-        await add_user_to_lobby(lobby, User(sid, username))
-        await sio.emit("lobby_join_response", {"lobby": lobby.serialize()})
+        await add_user_to_lobby(sid, lobby, User(username))
+        return {"lobby": lobby.serialize()}
     else:
-        await sio.emit("lobby_join_response", {"error": "Invalid lobby code"})
+        return {"error": "Invalid lobby code"}
 
 
 @sio.event
-async def lobby_start_game(sid: str, data: dict[str, Any]):
+async def lobby_start_game(_: str, data: dict[str, Any]):
     if "uuid" not in data:
         print("Not enough data for lobby_start_game")
         return
-    lobby_uuid = data["uuid"]
-    round_timer = int(data.get("round_timer", 60))
 
+    # Could also do it through get_session
+    lobby_uuid = data["uuid"]
     lobby = uuid_to_lobby[lobby_uuid]
+
+    round_timer = 20  # int(data.get("round_timer", 20))
     lobby.new_game(round_timer)
 
-    print(f"Starting game in {lobby_uuid}")
-    await sio.emit("game_start", {}, to=lobby_uuid)
+    print(f"Starting game in {lobby.uuid}")
+    await sio.emit("game_start", {}, room=lobby.uuid)
 
-    thread = Thread(target=game_loop, args=(lobby,))
-    thread.start()
+    sio.start_background_task(game_loop, lobby)
 
 
 @sio.event
-def game_response(sid: str, data: dict[str, Any]):
+async def game_response(sid: str, data: dict[str, Any]):
     if "description" not in data:
         print("Not enough data for game_response")
         return
 
     description = data["description"]
 
-    lobby = sid_to_lobby[sid]
-    lobby.add_response(User(sid, ""), description)
+    session = await sio.get_session(sid)
+    lobby_uuid = session["lobby_uuid"]
+    lobby = uuid_to_lobby[lobby_uuid]
+    user = User(session["username"])
+
+    lobby.add_response(user, description)
 
 
 async def game_loop(lobby: Lobby):
     for _ in range(1, lobby.amount_of_rounds):
-        time.sleep(lobby.round_timer)
+        await sio.sleep(lobby.round_timer)
 
         # Wait for all responses
-        await sio.emit("game_next_state", {"state": "loading"}, to=lobby.uuid)
-        wait_until(lobby.all_responses_received, 5)
+        await sio.emit("game_next_state", {"state": "loading"}, room=lobby.uuid)
+        await wait_until(lobby.all_responses_received, 5)
+
+        print("Responses received", lobby.current_responses())
 
         # Generate images
         items = generate_next_images(lobby)
@@ -153,21 +161,21 @@ async def game_loop(lobby: Lobby):
         for user, imageUrl in shuffled_items:
             await sio.emit(
                 "game_next_state",
-                {"state": "loading", "imageUrl": imageUrl},
-                to=user.sid,
+                {"state": "describe", "imageUrl": imageUrl},
+                room=user.sid,
             )
 
-    await sio.emit("game_finish", {}, to=lobby.uuid)
+    await sio.emit("game_finish", {}, room=lobby.uuid)
     # del uuid_to_lobby[lobby.uuid]
     # remove_empty_lobby(lobby)
 
 
-def wait_until(somepredicate, timeout, period=0.25, *args, **kwargs):
+async def wait_until(somepredicate, timeout, period=1, *args, **kwargs):
     mustend = time.time() + timeout
     while time.time() < mustend:
         if somepredicate(*args, **kwargs):
             return True
-        time.sleep(period)
+        await sio.sleep(period)
     return False
 
 

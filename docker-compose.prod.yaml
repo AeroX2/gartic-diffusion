@@ -26,6 +26,24 @@ services:
       - redis_net
       - lobby_net
 
+  diffusion_server:
+    build: 
+      context: diffusion_server
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+        - REDIS_URL=redis://redis:6379
+    restart: on-failure:3
+    depends_on:
+      - redis
+    networks:
+      - redis_net
+
   redis:
     image: redis
     restart: always
@@ -40,3 +58,6 @@ networks:
     driver: bridge
   lobby_net:
     driver: bridge
+
+volumes:
+  shared-images-volume:

@@ -1,10 +1,10 @@
 <script lang="ts">
 import { defineComponent } from "vue";
-import { io } from "socket.io-client";
 import UserDialog from "./UserDialog.vue";
 import JoinLobbyDialog from "./JoinLobbyDialog.vue";
 import { useLobbyStore } from "../stores/lobby";
 import { toSvg } from "jdenticon";
+import { useSocketStore } from "@/stores/socketio";
 
 export default defineComponent({
   components: {
@@ -18,7 +18,7 @@ export default defineComponent({
     return {
       store: useLobbyStore(),
       error: undefined as string | undefined,
-      socket: io(),
+      socket: useSocketStore(),
     };
   },
   mounted() {
@@ -54,25 +54,31 @@ export default defineComponent({
       });
 
       if (this.$props.type === "create") {
-        this.socket.on("lobby_create_response", (data) => {
-          if (this.handleError(data)) return;
+        this.socket.emit(
+          "lobby_create",
+          { username: this.store.username },
+          (data: any) => {
+            if (this.handleError(data)) return;
 
-          this.store.lobby = data.lobby;
-          this.store.code = data.code;
-          this.store.doneLoading();
-        });
-        this.socket.emit("lobby_create", { username: this.store.username });
+            this.store.lobby = data.lobby;
+            this.store.code = data.code;
+            this.store.doneLoading();
+          }
+        );
       } else if (this.$props.type === "join") {
-        this.socket.on("lobby_join_response", (data) => {
-          if (this.handleError(data)) return;
+        this.socket.emit(
+          "lobby_join",
+          {
+            code: this.store.code,
+            username: this.store.username,
+          },
+          (data: any) => {
+            if (this.handleError(data)) return;
 
-          this.store.lobby = data.lobby;
-          this.store.doneLoading();
-        });
-        this.socket.emit("lobby_join", {
-          code: this.store.code,
-          username: this.store.username,
-        });
+            this.store.lobby = data.lobby;
+            this.store.doneLoading();
+          }
+        );
       }
     },
     handleError(data: { error: string }) {

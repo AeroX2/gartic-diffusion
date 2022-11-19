@@ -20,6 +20,7 @@ import Tag from "primevue/tag";
 import Inplace from "primevue/inplace";
 import ToastService from "primevue/toastservice";
 import Toast from "primevue/toast";
+import ProgressBar from "primevue/progressbar";
 
 import Tooltip from "primevue/tooltip";
 
@@ -40,6 +41,7 @@ app.component("ProgressSpinner", ProgressSpinner);
 app.component("Tag", Tag);
 app.component("Inplace", Inplace);
 app.component("Toast", Toast);
+app.component("ProgressBar", ProgressBar);
 
 app.directive("tooltip", Tooltip);
 
